@@ -2,6 +2,7 @@ package main
 
 import (
   "net"
+  "fmt"
   "flag"
   "log"
 )
@@ -23,6 +24,6 @@ func main() {
     if err != nil {
       log.Fatal(err)
     }
-    log.Print(buffer[:numRead])
+    fmt.Printf("%s", buffer[:numRead])
   }
 }
