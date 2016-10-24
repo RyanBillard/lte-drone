@@ -19,7 +19,7 @@ func main() {
 
   consumer := <- consumerChan
 
-  packets := make(chan []byte)
+  packets := make(chan []byte, 1000)
   go write(consumer, packets)
   read(producer, packets)
 }
@@ -42,12 +42,13 @@ func connect(address string, conn chan net.Conn) {
 func read(conn net.Conn, packets chan []byte) {
   defer conn.Close()
   for {
-    buffer := make([]byte, 1500)
-    _, err := conn.Read(buffer)
+    buffer := make([]byte, 150000)
+    numRead, err := conn.Read(buffer) 
     if err != nil {
       log.Fatal(err)
     }
-    packets <- buffer
+    log.Printf("Read %d bytes", numRead)
+    packets <- buffer[:numRead]
   }
 }
 
@@ -55,6 +56,7 @@ func write(conn net.Conn, packets chan []byte) {
   defer conn.Close()
   for {
     packet := <- packets
+    log.Printf("Writing %d bytes", len(packet))
     _, err := conn.Write(packet)
     if err != nil {
       log.Fatal(err)
