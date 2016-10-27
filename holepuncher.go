@@ -9,7 +9,8 @@ func main() {
   connectSock := createSocket()
   acceptSock := createSocket()
 
-  remoteAddr := syscall.SockaddrInet4{Port: 8080, Addr: [4]byte{0,0,0,0}}
+  // remoteAddr := syscall.SockaddrInet4{Port: 8080, Addr: [4]byte{0,0,0,0}}
+  remoteAddr := syscall.SockaddrInet4{Port: 8080, Addr: [4]byte{54,166,16,218}}
   err := syscall.Connect(connectSock, &remoteAddr)
   handleError(err, connectSock)
   log.Print("Connected to: ", remoteAddr)
