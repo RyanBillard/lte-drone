@@ -5,35 +5,59 @@ import (
   "net"
 )
 
+type clientConn struct {
+  conn *net.UDPConn
+  addr *net.UDPAddr
+}
+
 func main() {
-  rtpAddr, err := net.ResolveUDPAddr("udp", ":8000")
-  handleError(err)
-  rtpConn, err := net.ListenUDP("udp", rtpAddr)
-  handleError(err)
-  defer rtpConn.Close()
+  rtpConn := listenForStream(":8000")
+  rtcpConn := listenForStream(":8001")
 
-  listenAddr, err := net.ResolveUDPAddr("udp", ":5000")
-  handleError(err)
-  clientConn, err := net.ListenUDP("udp", listenAddr)
-  handleError(err)
-  defer clientConn.Close()
+  rtpChan := make(chan clientConn)
+  go waitForClient(":5000", rtpChan)
+  rtcpChan := make(chan clientConn)
+  go waitForClient(":5001", rtcpChan)
+  clientRtp := <- rtpChan 
+  clientRtcp := <- rtcpChan
 
-  buffer := make([]byte, 150000)
-  numRead, clientAddr, err := clientConn.ReadFromUDP(buffer)
+  log.Printf("Routing rtp messages received on ports %v, %v to %v, %v", rtpConn.LocalAddr(), rtcpConn.LocalAddr(), clientRtp.addr.String(), clientRtcp.addr.String())
+  rtpPackets := make(chan []byte, 1000)
+  go write(clientRtp.conn, clientRtp.addr, rtpPackets)
+  go read(rtpConn, rtpPackets)
+
+  rtcpPackets := make(chan []byte, 1000)
+  go write(clientRtcp.conn, clientRtcp.addr, rtcpPackets)
+  read(rtcpConn, rtcpPackets)
+}
+
+func waitForClient(addr string, channel chan clientConn) {
+  listenAddr, err := net.ResolveUDPAddr("udp", addr)
+  handleError(err)
+  conn, err := net.ListenUDP("udp", listenAddr)
+  handleError(err)
+
+  buffer := make([]byte, 100)
+  numRead, clientAddr, err := conn.ReadFromUDP(buffer)
   handleError(err)
   if string(buffer[:numRead]) == "initiate" {
     log.Print("Received initiation message from stream consumer")
   } else {
-    log.Fatal("Received unexpected packet from strem consumer")
+    log.Fatal("Received unexpected packet from stream consumer")
   }
+  channel <- clientConn{conn, clientAddr}
+}
 
-  log.Printf("Routing rtp messages received on port %v to %v", rtpAddr.String(), clientAddr.String())
-  packets := make(chan []byte, 1000)
-  go write(clientConn, clientAddr, packets)
-  read(rtpConn, packets)
+func listenForStream(addr string) net.Conn {
+  udpAddr, err := net.ResolveUDPAddr("udp", addr)
+  handleError(err)
+  conn, err := net.ListenUDP("udp", udpAddr)
+  handleError(err)
+  return conn
 }
 
 func write(conn *net.UDPConn, addr *net.UDPAddr, packets chan []byte) {
+  defer conn.Close()
   for {
     packet := <- packets
     log.Printf("Writing %d bytes", len(packet))
@@ -43,6 +67,7 @@ func write(conn *net.UDPConn, addr *net.UDPAddr, packets chan []byte) {
 }
 
 func read(conn net.Conn, packets chan []byte) {
+  defer conn.Close()
   for {
     buffer := make([]byte, 150000)
     numRead, err := conn.Read(buffer)
