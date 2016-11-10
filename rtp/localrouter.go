@@ -17,6 +17,7 @@ func main() {
 
   // flag.Parse()
 
+  rtpHost := "ec2-54-166-16-218.compute-1.amazonaws.com"
   rtpPort := 5000
   rtcpPort := rtpPort + 1
 
@@ -26,8 +27,8 @@ func main() {
   destRtpConn, destRtpAddr := initialiazeLocalConnection(destRtpPort)
   destRtcpConn, destRtcpAddr := initialiazeLocalConnection(destRtcpPort)
 
-  rtpConn := initializeConnection(rtpPort)
-  rtcpConn := initializeConnection(rtcpPort)
+  rtpConn := initializeConnection(rtpHost, rtpPort)
+  rtcpConn := initializeConnection(rtpHost, rtcpPort)
 
   log.Printf("Routing rtp stream from server to local ports %d, %d", destRtpPort, destRtcpPort)
   rtpPackets := make(chan []byte, 1000)
@@ -39,8 +40,8 @@ func main() {
   write(destRtcpConn, destRtcpAddr, rtcpPackets)
 }
 
-func initializeConnection(port int) net.Conn {
-  addr := fmt.Sprintf(":%d", port)
+func initializeConnection(host string, port int) net.Conn {
+  addr := fmt.Sprintf("%s:%d", host, port)
   serverConn, err := net.Dial("udp", addr)
   handleError(err)
   // defer serverConn.Close()
