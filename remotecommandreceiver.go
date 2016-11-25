@@ -34,7 +34,7 @@ func read(conn net.Conn) {
     if err != nil {
       log.Fatal(err)
     }
-    log.Print(buffer[:numRead])
+    fmt.Printf("%s", buffer[:numRead])
   }
 }
 
