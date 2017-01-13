@@ -11,16 +11,30 @@ type clientConn struct {
 }
 
 func main() {
-  rtpConn := listenForStream(":8000")
-  rtcpConn := listenForStream(":8001")
+  //listen for MAVLink
+  mavConn := listenOnPort(":8010")
 
+  //listen for RTP stream
+  rtpConn := listenOnPort(":8000")
+  rtcpConn := listenOnPort(":8001")
+
+  //wait for client to initiate
+  mavChan := make(chan clientConn)
+  go waitForClient(":5010", mavChan)
   rtpChan := make(chan clientConn)
   go waitForClient(":5000", rtpChan)
   rtcpChan := make(chan clientConn)
   go waitForClient(":5001", rtcpChan)
+  
+  clientMav := <- mavChan
   clientRtp := <- rtpChan 
   clientRtcp := <- rtcpChan
 
+  log.Printf("Routing mavlink packets received at %v to %v", mavConn.LocalAddr(), clientMav.addr.String())
+  mavPackets := make(chan []byte, 1000)
+  go write(clientMav.conn, clientMav.addr, mavPackets)
+  go read(mavConn, mavPackets)
+  
   log.Printf("Routing rtp messages received on ports %v, %v to %v, %v", rtpConn.LocalAddr(), rtcpConn.LocalAddr(), clientRtp.addr.String(), clientRtcp.addr.String())
   rtpPackets := make(chan []byte, 1000)
   go write(clientRtp.conn, clientRtp.addr, rtpPackets)
@@ -32,10 +46,7 @@ func main() {
 }
 
 func waitForClient(addr string, channel chan clientConn) {
-  listenAddr, err := net.ResolveUDPAddr("udp", addr)
-  handleError(err)
-  conn, err := net.ListenUDP("udp", listenAddr)
-  handleError(err)
+  conn := listenOnPort(addr)
 
   buffer := make([]byte, 100)
   numRead, clientAddr, err := conn.ReadFromUDP(buffer)
@@ -48,7 +59,7 @@ func waitForClient(addr string, channel chan clientConn) {
   channel <- clientConn{conn, clientAddr}
 }
 
-func listenForStream(addr string) net.Conn {
+func listenOnPort(addr string) *net.UDPConn {
   udpAddr, err := net.ResolveUDPAddr("udp", addr)
   handleError(err)
   conn, err := net.ListenUDP("udp", udpAddr)
