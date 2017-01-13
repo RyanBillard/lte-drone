@@ -17,18 +17,22 @@ func main() {
 
   // flag.Parse()
 
-  rtpHost := "ec2-54-166-16-218.compute-1.amazonaws.com"
+  rtpHost := "ec2-54-225-61-90.compute-1.amazonaws.com"
   rtpPort := 5000
   rtcpPort := rtpPort + 1
+  mavPort := 5010
 
   destRtpPort := 5002
   destRtcpPort := destRtpPort + 1
+  destMavPort := 8100
 
   destRtpConn, destRtpAddr := initialiazeLocalConnection(destRtpPort)
   destRtcpConn, destRtcpAddr := initialiazeLocalConnection(destRtcpPort)
+  destMavConn, destMavAddr := initialiazeLocalConnection(destMavPort)
 
   rtpConn := initializeConnection(rtpHost, rtpPort)
   rtcpConn := initializeConnection(rtpHost, rtcpPort)
+  mavConn := initializeConnection(rtpHost, mavPort)
 
   log.Printf("Routing rtp stream from server to local ports %d, %d", destRtpPort, destRtcpPort)
   rtpPackets := make(chan []byte, 1000)
@@ -37,7 +41,11 @@ func main() {
 
   rtcpPackets := make(chan []byte, 1000)
   go read(rtcpConn, rtcpPackets)
-  write(destRtcpConn, destRtcpAddr, rtcpPackets)
+  go write(destRtcpConn, destRtcpAddr, rtcpPackets)
+
+  mavPackets := make(chan []byte, 1000)
+  go read(mavConn, mavPackets)
+  write(destMavConn, destMavAddr, mavPackets)
 }
 
 func initializeConnection(host string, port int) net.Conn {
