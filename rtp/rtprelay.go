@@ -11,29 +11,18 @@ type clientConn struct {
 }
 
 func main() {
-  //listen for MAVLink
-  mavConn := listenOnPort(":8010")
-
   //listen for RTP stream
   rtpConn := listenOnPort(":8000")
   rtcpConn := listenOnPort(":8001")
 
   //wait for client to initiate
-  mavChan := make(chan clientConn)
-  go waitForClient(":5010", mavChan)
   rtpChan := make(chan clientConn)
   go waitForClient(":5000", rtpChan)
   rtcpChan := make(chan clientConn)
   go waitForClient(":5001", rtcpChan)
   
-  clientMav := <- mavChan
   clientRtp := <- rtpChan 
   clientRtcp := <- rtcpChan
-
-  log.Printf("Routing mavlink packets received at %v to %v", mavConn.LocalAddr(), clientMav.addr.String())
-  mavPackets := make(chan []byte, 1000)
-  go write(clientMav.conn, clientMav.addr, mavPackets)
-  go read(mavConn, mavPackets)
   
   log.Printf("Routing rtp messages received on ports %v, %v to %v, %v", rtpConn.LocalAddr(), rtcpConn.LocalAddr(), clientRtp.addr.String(), clientRtcp.addr.String())
   rtpPackets := make(chan []byte, 1000)

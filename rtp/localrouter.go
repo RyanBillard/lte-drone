@@ -36,14 +36,15 @@ func main() {
 
   log.Printf("Routing rtp stream from server to local ports %d, %d", destRtpPort, destRtcpPort)
   rtpPackets := make(chan []byte, 1000)
+  rtcpPackets := make(chan []byte, 1000)
+  mavPackets := make(chan []byte, 1000)
+
   go read(rtpConn, rtpPackets)
   go write(destRtpConn, destRtpAddr, rtpPackets)
 
-  rtcpPackets := make(chan []byte, 1000)
   go read(rtcpConn, rtcpPackets)
   go write(destRtcpConn, destRtcpAddr, rtcpPackets)
 
-  mavPackets := make(chan []byte, 1000)
   go read(mavConn, mavPackets)
   write(destMavConn, destMavAddr, mavPackets)
 }
