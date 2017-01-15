@@ -16,7 +16,7 @@ func main() {
   remoteConn := connect(host, remotePort)
   initializeRemoteConnection(remoteConn)
 
-  log.Printf("Bidirectionally routing packets between %d and %d", remoteConn.RemoteAddr(), localConn.RemoteAddr())
+  log.Printf("Bidirectionally routing packets between %s and %s", remoteConn.RemoteAddr(), localConn.RemoteAddr())
   incomingPackets := make(chan []byte, 1000)
 
   go read(remoteConn, incomingPackets)
@@ -58,7 +58,7 @@ func write(conn net.Conn, packets chan []byte) {
   defer conn.Close()
   for {
     packet := <- packets
-    log.Printf("Routed %d bytes\c\e[K", len(packet))
+    log.Printf("Routed %d bytes", len(packet))
     _, err := conn.Write(packet)
     if err != nil {
       log.Fatal(err)
