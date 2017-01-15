@@ -10,13 +10,16 @@ type AddressedPacket struct {
   data []byte
 }
 
+var groundAddr *net.UDPAddr
+var droneAddr *net.UDPAddr
+
 func main() {
   //listen for MAVLink
   droneConn := listenOnPort(":8010")
 
   groundConn := listenOnPort(":5010")
   //wait for ground station to initiate
-  waitForClient(groundConn)
+  groundAddr = waitForClient(groundConn)
 
   log.Print("Routing mavlink packets between drone and ground station")
 
@@ -25,15 +28,16 @@ func main() {
   read(droneConn, incomingPackets)
 }
 
-func waitForClient(conn *net.UDPConn) {
+func waitForClient(conn *net.UDPConn) *net.UDPAddr {
   buffer := make([]byte, 100)
-  numRead, _, err := conn.ReadFrom(buffer)
+  numRead, addr, err := conn.ReadFromUDP(buffer)
   handleError(err)
   if string(buffer[:numRead]) == "initiate" {
     log.Print("Received initiation message from stream consumer")
   } else {
     log.Fatal("Received unexpected packet from stream consumer")
   }
+  return addr
 }
 
 func listenOnPort(addr string) *net.UDPConn {
@@ -60,8 +64,15 @@ func read(conn *net.UDPConn, packets chan AddressedPacket) {
     buffer := make([]byte, 150000)
     numRead, addr, err := conn.ReadFromUDP(buffer)
     handleError(err)
+    if droneAddr == nil {
+      droneAddr = addr
+    }
     log.Printf("Read %d bytes", numRead)
-    packets <- AddressedPacket{addr, buffer[:numRead]}
+    if addr == droneAddr {
+      packets <- AddressedPacket{groundAddr, buffer[:numRead]}
+    } else {
+      packets <- AddressedPacket{droneAddr, buffer[:numRead]}
+    }
   }
 }
 
