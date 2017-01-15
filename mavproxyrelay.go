@@ -25,7 +25,11 @@ func main() {
 
   incomingPackets := make(chan AddressedPacket, 1000)
   go write(groundConn, incomingPackets)
-  read(droneConn, incomingPackets)
+  go read(droneConn, incomingPackets)
+
+  outgoingPackets := make(chan AddressedPacket, 1000)
+  go write(droneConn, outgoingPackets)
+  read(groundConn, outgoingPackets)
 }
 
 func waitForClient(conn *net.UDPConn) *net.UDPAddr {
