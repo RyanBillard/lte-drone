@@ -68,7 +68,7 @@ func read(conn *net.UDPConn, packets chan AddressedPacket) {
       droneAddr = addr
     }
     log.Printf("Read %d bytes", numRead)
-    if addr == droneAddr {
+    if addr.String() == droneAddr.String() {
       packets <- AddressedPacket{groundAddr, buffer[:numRead]}
     } else {
       packets <- AddressedPacket{droneAddr, buffer[:numRead]}
