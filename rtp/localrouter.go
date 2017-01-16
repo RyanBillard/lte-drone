@@ -3,50 +3,32 @@ package main
 import (
   "log"
   "net"
-  // "flag"
   "fmt"
 )
 
 func main() {
-  // // ec2-54-166-16-218.compute-1.amazonaws.com:5000
-  // var listenAddr string
-  // flag.StringVar(&listenAddr, "listen", ":5000", "Address of server from which rtp stream is requested")
-
-  // var destAddr string
-  // flag.StringVar(&destAddr, "destination", ":5002", "Address to which rtp stream data will be routed")
-
-  // flag.Parse()
-
   rtpHost := "ec2-54-225-61-90.compute-1.amazonaws.com"
   rtpPort := 5000
   rtcpPort := rtpPort + 1
-  mavPort := 5010
 
   destRtpPort := 5002
   destRtcpPort := destRtpPort + 1
-  destMavPort := 8100
 
   destRtpConn, destRtpAddr := initialiazeLocalConnection(destRtpPort)
   destRtcpConn, destRtcpAddr := initialiazeLocalConnection(destRtcpPort)
-  destMavConn, destMavAddr := initialiazeLocalConnection(destMavPort)
 
   rtpConn := initializeConnection(rtpHost, rtpPort)
   rtcpConn := initializeConnection(rtpHost, rtcpPort)
-  mavConn := initializeConnection(rtpHost, mavPort)
 
   log.Printf("Routing rtp stream from server to local ports %d, %d", destRtpPort, destRtcpPort)
   rtpPackets := make(chan []byte, 1000)
   rtcpPackets := make(chan []byte, 1000)
-  mavPackets := make(chan []byte, 1000)
 
   go read(rtpConn, rtpPackets)
   go write(destRtpConn, destRtpAddr, rtpPackets)
 
   go read(rtcpConn, rtcpPackets)
-  go write(destRtcpConn, destRtcpAddr, rtcpPackets)
-
-  go read(mavConn, mavPackets)
-  write(destMavConn, destMavAddr, mavPackets)
+  write(destRtcpConn, destRtcpAddr, rtcpPackets)
 }
 
 func initializeConnection(host string, port int) net.Conn {
