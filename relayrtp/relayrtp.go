@@ -3,57 +3,31 @@ package relayrtp
 import (
   "log"
   "net"
+  "github.com/RyanBillard/lte-drone/shared"
 )
-
-type clientConn struct {
-  conn *net.UDPConn
-  addr *net.UDPAddr
-}
 
 func main() {
   //listen for RTP stream
-  rtpConn := listenOnPort(":8000")
-  rtcpConn := listenOnPort(":8001")
+  rtpConn := shared.ListenOnPort(8000)
+  rtcpConn := shared.ListenOnPort(8001)
 
   //wait for client to initiate
-  rtpChan := make(chan clientConn)
-  go waitForClient(":5000", rtpChan)
-  rtcpChan := make(chan clientConn)
-  go waitForClient(":5001", rtcpChan)
+  rtpChan := make(chan shared.Client)
+  go shared.DiscoverClient(5000, rtpChan)
+  rtcpChan := make(chan shared.Client)
+  go shared.DiscoverClient(5001, rtcpChan)
   
   clientRtp := <- rtpChan 
   clientRtcp := <- rtcpChan
   
-  log.Printf("Routing rtp messages received on ports %v, %v to %v, %v", rtpConn.LocalAddr(), rtcpConn.LocalAddr(), clientRtp.addr.String(), clientRtcp.addr.String())
+  log.Printf("Routing rtp messages received on ports %v, %v to %v, %v", rtpConn.LocalAddr(), rtcpConn.LocalAddr(), clientRtp.Addr.String(), clientRtcp.Addr.String())
   rtpPackets := make(chan []byte, 1000)
-  go write(clientRtp.conn, clientRtp.addr, rtpPackets)
-  go read(rtpConn, rtpPackets)
+  go write(clientRtp.Conn, clientRtp.Addr, rtpPackets)
+  go shared.Read(rtpConn, rtpPackets)
 
   rtcpPackets := make(chan []byte, 1000)
-  go write(clientRtcp.conn, clientRtcp.addr, rtcpPackets)
-  read(rtcpConn, rtcpPackets)
-}
-
-func waitForClient(addr string, channel chan clientConn) {
-  conn := listenOnPort(addr)
-
-  buffer := make([]byte, 100)
-  numRead, clientAddr, err := conn.ReadFromUDP(buffer)
-  handleError(err)
-  if string(buffer[:numRead]) == "initiate" {
-    log.Print("Received initiation message from stream consumer")
-  } else {
-    log.Fatal("Received unexpected packet from stream consumer")
-  }
-  channel <- clientConn{conn, clientAddr}
-}
-
-func listenOnPort(addr string) *net.UDPConn {
-  udpAddr, err := net.ResolveUDPAddr("udp", addr)
-  handleError(err)
-  conn, err := net.ListenUDP("udp", udpAddr)
-  handleError(err)
-  return conn
+  go write(clientRtcp.Conn, clientRtcp.Addr, rtcpPackets)
+  shared.Read(rtcpConn, rtcpPackets)
 }
 
 func write(conn *net.UDPConn, addr *net.UDPAddr, packets chan []byte) {
@@ -62,23 +36,6 @@ func write(conn *net.UDPConn, addr *net.UDPAddr, packets chan []byte) {
     packet := <- packets
     log.Printf("Writing %d bytes", len(packet))
     _, err := conn.WriteToUDP(packet, addr)
-    handleError(err)
-  }
-}
-
-func read(conn net.Conn, packets chan []byte) {
-  defer conn.Close()
-  for {
-    buffer := make([]byte, 150000)
-    numRead, err := conn.Read(buffer)
-    handleError(err)
-    log.Printf("Read %d bytes", numRead)
-    packets <- buffer[:numRead]
-  }
-}
-
-func handleError(err error) {
-  if err != nil {
-    log.Fatal(err)
+    shared.HandleIfError(err)
   }
 }

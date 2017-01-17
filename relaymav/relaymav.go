@@ -3,6 +3,7 @@ package relaymav
 import (
   "log"
   "net"
+  "github.com/RyanBillard/lte-drone/shared"
 )
 
 type AddressedPacket struct {
@@ -15,41 +16,23 @@ var droneAddr *net.UDPAddr
 
 func main() {
   //listen for MAVLink
-  droneConn := listenOnPort(":8010")
+  droneConn := shared.ListenOnPort(8010)
 
-  groundConn := listenOnPort(":5010")
   //wait for ground station to initiate
-  groundAddr = waitForClient(groundConn)
+  clientChan := make(chan shared.Client)
+  go shared.DiscoverClient(5010, clientChan)
+  client := <- clientChan
+  groundAddr = client.Addr
 
   log.Print("Routing mavlink packets between drone and ground station")
 
   incomingPackets := make(chan AddressedPacket, 1000)
-  go write(groundConn, incomingPackets)
+  go write(client.Conn, incomingPackets)
   go read(droneConn, incomingPackets)
 
   outgoingPackets := make(chan AddressedPacket, 1000)
   go write(droneConn, outgoingPackets)
-  read(groundConn, outgoingPackets)
-}
-
-func waitForClient(conn *net.UDPConn) *net.UDPAddr {
-  buffer := make([]byte, 100)
-  numRead, addr, err := conn.ReadFromUDP(buffer)
-  handleError(err)
-  if string(buffer[:numRead]) == "initiate" {
-    log.Print("Received initiation message from stream consumer")
-  } else {
-    log.Fatal("Received unexpected packet from stream consumer")
-  }
-  return addr
-}
-
-func listenOnPort(addr string) *net.UDPConn {
-  udpAddr, err := net.ResolveUDPAddr("udp", addr)
-  handleError(err)
-  conn, err := net.ListenUDP("udp", udpAddr)
-  handleError(err)
-  return conn
+  read(client.Conn, outgoingPackets)
 }
 
 func write(conn *net.UDPConn, packets chan AddressedPacket) {
@@ -58,7 +41,7 @@ func write(conn *net.UDPConn, packets chan AddressedPacket) {
     packet := <- packets
     log.Printf("Writing %d bytes", len(packet.data))
     _, err := conn.WriteToUDP(packet.data, packet.addr)
-    handleError(err)
+    shared.HandleIfError(err)
   }
 }
 
@@ -67,7 +50,7 @@ func read(conn *net.UDPConn, packets chan AddressedPacket) {
   for {
     buffer := make([]byte, 150000)
     numRead, addr, err := conn.ReadFromUDP(buffer)
-    handleError(err)
+    shared.HandleIfError(err)
     if droneAddr == nil {
       droneAddr = addr
     }
@@ -77,11 +60,5 @@ func read(conn *net.UDPConn, packets chan AddressedPacket) {
     } else {
       packets <- AddressedPacket{droneAddr, buffer[:numRead]}
     }
-  }
-}
-
-func handleError(err error) {
-  if err != nil {
-    log.Fatal(err)
   }
 }
