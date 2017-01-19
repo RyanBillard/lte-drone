@@ -1,4 +1,4 @@
-package relayrtp
+package main
 
 import (
   "log"

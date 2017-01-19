@@ -1,4 +1,4 @@
-package relaymav
+package main
 
 import (
   "log"

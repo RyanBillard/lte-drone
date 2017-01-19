@@ -1,4 +1,4 @@
-package groundrtp
+package main
 
 import (
   "log"

@@ -1,4 +1,4 @@
-package groundmav
+package main
 
 import (
   "log"
