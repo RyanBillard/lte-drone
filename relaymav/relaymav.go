@@ -51,7 +51,7 @@ func read(conn *net.UDPConn, packets chan AddressedPacket) {
     buffer := make([]byte, 150000)
     numRead, addr, err := conn.ReadFromUDP(buffer)
     shared.HandleIfError(err)
-    if droneAddr == nil {
+    if addr.String() != groundAddr.String() {
       droneAddr = addr
     }
     log.Printf("Read %d bytes", numRead)
