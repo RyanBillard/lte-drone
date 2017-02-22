@@ -2,7 +2,7 @@ package main
 
 import (
   "log"
-  "github.com/RyanBillard/lte-drone/shared"
+  "github.com/stephanernst/lte-drone/shared"
 )
 
 func main() {

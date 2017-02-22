@@ -3,7 +3,7 @@ package main
 import (
   "log"
   "net"
-  "github.com/RyanBillard/lte-drone/shared"
+  "github.com/stephanernst/lte-drone/shared"
 )
 
 type AddressedPacket struct {
